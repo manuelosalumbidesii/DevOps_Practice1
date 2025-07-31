@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>React Frontend</title>
+</head>
+<script>
+  fetch("http://localhost:5000/api")
+    .then(response => response.json())
+    .then(data => {
+      document.body.innerHTML += `<p>${data.message}</p>`;
+    })
+    .catch(err => console.error(err));
+</script>
+
+<body>
+  <div id="root"></div>
+</body>
+</html>
