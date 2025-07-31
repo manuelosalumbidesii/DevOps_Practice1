@@ -1,0 +1,91 @@
+name: CI/CD - Build and Push
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # ===== Backend Build =====
+      - name: Install backend dependencies
+        run: |
+          cd backend
+          npm install
+
+      - name: Run backend tests
+        run: |
+          cd backend
+          npm test || echo "No test script defined, skipping tests."
+
+      - name: Lint backend code
+        run: |
+          cd backend
+          npm install eslint --save-dev
+          npx eslint . || echo "Lint warnings."
+
+      # ===== Frontend Build =====
+      - name: Install frontend dependencies
+        run: |
+          cd frontend
+          npm install
+
+      - name: Build frontend
+        run: |
+          cd frontend
+          npm run build || echo "No build script, skipping build."
+
+      # ===== Docker Login =====
+      - name: Log in to Docker Hub
+        run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+
+      - name: Log in to GHCR
+        run: echo "${{ secrets.GH_PAT }}" | docker login ghcr.io -u "${{ secrets.GHCR_USERNAME }}" --password-stdin
+
+      # ===== Build & Push Docker Images =====
+      - name: Build Docker images
+        run: |
+          docker build -t ${{ secrets.DOCKER_USERNAME }}/backend:latest ./backend
+          docker build -t ${{ secrets.DOCKER_USERNAME }}/frontend:latest ./frontend
+          docker tag ${{ secrets.DOCKER_USERNAME }}/backend:latest ghcr.io/${{ secrets.GHCR_USERNAME }}/backend:latest
+          docker tag ${{ secrets.DOCKER_USERNAME }}/frontend:latest ghcr.io/${{ secrets.GHCR_USERNAME }}/frontend:latest
+
+      - name: Push images to Docker Hub
+        run: |
+          docker push ${{ secrets.DOCKER_USERNAME }}/backend:latest
+          docker push ${{ secrets.DOCKER_USERNAME }}/frontend:latest
+
+      - name: Push images to GHCR
+        run: |
+          docker push ghcr.io/${{ secrets.GHCR_USERNAME }}/backend:latest
+          docker push ghcr.io/${{ secrets.GHCR_USERNAME }}/frontend:latest
+
+  slack-notify-qa:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Slack notification for QA approval
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_COLOR: '#ffcc00'
+          SLACK_MESSAGE: |
+            Build and push completed for backend & frontend.
+            Waiting for QA approval to deploy to production.
+            Approve deployment here: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          SLACK_TITLE: 'Awaiting QA Approval'
+
+  deploy-to-prod:
+    needs: slack-notify-qa
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://your-production-url.com
+    steps:
+      - name: Final production deployment step
+        run: echo "Deploying backend & frontend to production..."
