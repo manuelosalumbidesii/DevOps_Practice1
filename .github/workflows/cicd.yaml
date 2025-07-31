@@ -12,7 +12,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # ===== Backend Build ===
+      # ===== Backend Build ====
       - name: Install backend dependencies
         run: |
           cd backend
@@ -29,7 +29,7 @@ jobs:
           npm install eslint --save-dev
           npx eslint . || echo "Lint warnings."
 
-      # ===== Frontend Build =====
+      # ===== Frontend Build ======
       - name: Install frontend dependencies
         run: |
           cd frontend
