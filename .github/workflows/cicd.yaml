@@ -12,7 +12,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # ===== Backend Build ====
+      # ===== Backend Build =====
       - name: Install backend dependencies
         run: |
           cd backend
@@ -29,7 +29,7 @@ jobs:
           npm install eslint --save-dev
           npx eslint . || echo "Lint warnings."
 
-      # ===== Frontend Build ======
+      # ===== Frontend Build =====
       - name: Install frontend dependencies
         run: |
           cd frontend
@@ -47,23 +47,30 @@ jobs:
       - name: Log in to GHCR
         run: echo "${{ secrets.GH_PAT }}" | docker login ghcr.io -u "${{ secrets.GHCR_USERNAME }}" --password-stdin
 
+      # ===== Versioning =====
+      - name: Set version tag
+        id: version
+        run: |
+          VERSION="v1"
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+
       # ===== Build & Push Docker Images =====
       - name: Build Docker images
         run: |
-          docker build -t ${{ secrets.DOCKER_USERNAME }}/backend:latest ./backend
-          docker build -t ${{ secrets.DOCKER_USERNAME }}/frontend:latest ./frontend
-          docker tag ${{ secrets.DOCKER_USERNAME }}/backend:latest ghcr.io/${{ secrets.GHCR_USERNAME }}/backend:latest
-          docker tag ${{ secrets.DOCKER_USERNAME }}/frontend:latest ghcr.io/${{ secrets.GHCR_USERNAME }}/frontend:latest
+          docker build -t ${{ secrets.DOCKER_USERNAME }}/myapp-backend:${{ env.VERSION }} ./backend
+          docker build -t ${{ secrets.DOCKER_USERNAME }}/myapp-frontend:${{ env.VERSION }} ./frontend
+          docker tag ${{ secrets.DOCKER_USERNAME }}/myapp-backend:${{ env.VERSION }} ghcr.io/${{ secrets.GHCR_USERNAME }}/myapp-backend:${{ env.VERSION }}
+          docker tag ${{ secrets.DOCKER_USERNAME }}/myapp-frontend:${{ env.VERSION }} ghcr.io/${{ secrets.GHCR_USERNAME }}/myapp-frontend:${{ env.VERSION }}
 
       - name: Push images to Docker Hub
         run: |
-          docker push ${{ secrets.DOCKER_USERNAME }}/backend:latest
-          docker push ${{ secrets.DOCKER_USERNAME }}/frontend:latest
+          docker push ${{ secrets.DOCKER_USERNAME }}/myapp-backend:${{ env.VERSION }}
+          docker push ${{ secrets.DOCKER_USERNAME }}/myapp-frontend:${{ env.VERSION }}
 
       - name: Push images to GHCR
         run: |
-          docker push ghcr.io/${{ secrets.GHCR_USERNAME }}/backend:latest
-          docker push ghcr.io/${{ secrets.GHCR_USERNAME }}/frontend:latest
+          docker push ghcr.io/${{ secrets.GHCR_USERNAME }}/myapp-backend:${{ env.VERSION }}
+          docker push ghcr.io/${{ secrets.GHCR_USERNAME }}/myapp-frontend:${{ env.VERSION }}
 
   slack-notify-qa:
     needs: build-and-push
@@ -75,7 +82,8 @@ jobs:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
           SLACK_COLOR: '#ffcc00'
           SLACK_MESSAGE: |
-            Build and push completed for backend & frontend.
+            Build and push completed for myapp-backend & myapp-frontend.
+            Tag: ${{ env.VERSION }}
             Waiting for QA approval to deploy to production.
             Approve deployment here: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
           SLACK_TITLE: 'Awaiting QA Approval'
@@ -88,4 +96,4 @@ jobs:
       url: https://your-production-url.com
     steps:
       - name: Final production deployment step
-        run: echo "Deploying backend & frontend to production..."
+        run: echo "Deploying myapp-backend & myapp-frontend (${{ env.VERSION }}) to production..."
